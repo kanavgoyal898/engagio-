@@ -1,84 +1,109 @@
 import os
+import random
 import cv2
 import torch
-import random
+import torch.nn as nn
+import pandas as pd
 
-def load_subdirectories(path):
-    sub_directories = []
-    for subdir in os.listdir(path):
-        if os.path.isdir(os.path.join(path, subdir)):
-            subdir_path = os.path.join(path, subdir)
-            sub_directories.append(subdir_path)
-    sub_directories.sort()
+PATH = 'DAiSEE/DataSet/'
+
+FPS = 30
+BATCH_SIZE = 8
+VIDEO_LENGTH = 10
+FRAME_INTERVAL = 2
+
+def get_subdirectories(path, sort=False):
+    """Get a list of sub-directories in parent directory 'path'."""
+    sub_directories = [os.path.join(path, subdir) for subdir in os.listdir(path) if os.path.isdir(os.path.join(path, subdir))]
+    
+    if sort:
+        sub_directories.sort()
+    else:
+        random.shuffle(sub_directories)
+    
     return sub_directories
 
-def load_videos(path):
-    videos = []
-    for file in os.listdir(path):
-        if file.endswith(('.mp4', '.avi', '.mov')):
-            video_path = os.path.join(path, file)
-            videos.append(video_path)
-    videos.sort()
+def get_videos(path, sort=False):
+    """Get a list of video paths from a directory 'path'."""
+    videos = [os.path.join(path, file) for file in os.listdir(path) if file.endswith(('.mp4', '.avi', '.mov'))]
+    
+    if sort:
+        videos.sort()
+    else:
+        random.shuffle(videos)
+    
     return videos
 
-def load_subject(path):
+def get_video_paths(path, sort=False):
+    """Get all video paths in a dataset."""
     videos = []
-    subject_subdirectories = load_subdirectories(path)
-    for subdirectory in subject_subdirectories:
-        video_paths = load_videos(subdirectory)
-        videos.extend(video_paths)
-    videos.sort()
+    subject_list = get_subdirectories(path)
+    
+    for subject in subject_list:
+        subject_subdir_list = get_subdirectories(subject, sort)
+        
+        for subdir in subject_subdir_list:
+            subdir_video_paths = get_videos(subdir, sort)
+            videos.extend(subdir_video_paths)
+    
     return videos
 
-def load_subjects(path, subject_count=8):
-    subjects_subdirectories = load_subdirectories(path)
-    subjects_subdirectories = random.sample(subjects_subdirectories, subject_count)
-
-    videos = []
-    for subject in subjects_subdirectories:
-        subject_videos = load_subject(subject)
-        videos.append(subject_videos)
-    return videos
-
-def get_frames(subject_videos, frame_interval=60, resize_to=None):
+def get_frames(subject_videos, frame_interval=FRAME_INTERVAL, resize_to=None):
+    """Get frames from a list of 'subject_videos' paths."""
     frames_subject = []
+
     for subject_video in subject_videos:
         video_capture = cv2.VideoCapture(subject_video)
+        
         if not video_capture.isOpened():
             print(f"Error opening video file {subject_video}")
             continue
 
         count = 0
         frames = []
+
         while True:
             success, frame = video_capture.read()
             if not success:
                 break
-            
+
             count += 1
             if count % frame_interval == 0:
                 if resize_to:
                     frame = cv2.resize(frame, resize_to)
-                frame_tensor = torch.tensor(frame, dtype=torch.float32)
+
+                # Convert the first frame from BGR to RGB
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                
+                frame_tensor = torch.from_numpy(frame)
                 frames.append(frame_tensor)
-        
-        video_capture.release() 
+
+        video_capture.release()
 
         if frames:
+            frames_required = (FPS * VIDEO_LENGTH) // frame_interval
+            frames = frames[:frames_required]
+            while len(frames) < frames_required:
+                frames.append(frames[-1])
             frames_subject.append(torch.stack(frames))
         else:
             print(f"No frames extracted from video file {subject_video}")
 
-    if frames_subject:
-        return torch.stack(frames_subject)
-    else:
-        return torch.tensor([])
-    
+    return torch.stack(frames_subject) if frames_subject else torch.tensor([])
 
-parent_directory = 'DAiSEE/DataSet/Train/'
-subdirectories = load_subdirectories(parent_directory)
-subdirectory_name = random.sample(subdirectories, 1)[0]
-subject_videos = load_subject(subdirectory_name)
+def get_labels(paths):
+    """Get labels for boredom, engagement, confusion, frustration."""
+    data = pd.read_csv('DAiSEE/Labels/AllLabels.csv')
+    tails = [os.path.split(path)[1] for path in paths]
+    filtered_data = data[data['ClipID'].isin(tails)]
+    engagement_data = filtered_data[['Engagement']]
+    return torch.tensor(engagement_data.values)
 
-frames_subject = get_frames(subject_videos)
-print(frames_subject.shape)
+def load_data(path, dataset, batch_size):
+    """Load random videos from 'path'."""
+    path = os.path.join(path, dataset)
+    paths = get_video_paths(path)
+    random_paths = random.sample(paths, batch_size)
+    X = get_frames(random_paths, FRAME_INTERVAL)
+    Y = get_labels(random_paths)
+    return X, Y
