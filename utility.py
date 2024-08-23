@@ -1,14 +1,14 @@
 import os
 import random
+
 import cv2
 import torch
-import torch.nn as nn
-import pandas as pd
+import pandas
 
 PATH = 'DAiSEE/DataSet/'
 
 FPS = 30
-BATCH_SIZE = 8
+BATCH_SIZE = 16
 VIDEO_LENGTH = 10
 FRAME_INTERVAL = 2
 
@@ -93,7 +93,7 @@ def get_frames(subject_videos, frame_interval=FRAME_INTERVAL, resize_to=None):
 
 def get_labels(paths):
     """Get labels for boredom, engagement, confusion, frustration."""
-    data = pd.read_csv('DAiSEE/Labels/AllLabels.csv')
+    data = pandas.read_csv(f'DAiSEE/Labels/AllLabels.csv')
     tails = [os.path.split(path)[1] for path in paths]
     filtered_data = data[data['ClipID'].isin(tails)]
     engagement_data = filtered_data[['Engagement']]
