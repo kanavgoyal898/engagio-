@@ -97,7 +97,7 @@ class TransformerBlock(torch.nn.Module):
         self.head_size = head_size
         self.n_heads = n_heads
         self.ffwd_mul = ffwd_mul
-        self.position_embedding = torch.nn.Linear(self.in_embd, self.head_size*self.n_heads)
+
         self.attn = MultiHeadAttention(self.in_embd, self.head_size, self.n_heads)
         self.norm1 = torch.nn.LayerNorm(self.in_embd)
         self.ffwd = FeedForward(self.in_embd, self.ffwd_mul)
@@ -106,8 +106,7 @@ class TransformerBlock(torch.nn.Module):
 
     def forward(self, x):
 
-        out = x.long()
-        out = self.position_embedding(x)                            # (B, T, in_embd)
+        out = x                                                     # (B, T, in_embd)
         out = self.norm1(out + self.attn(out))                      # (B, T, in_embd)
         out = self.norm2(out + self.ffwd(out))                      # (B, T, in_embd)
         out = self.conv(out.transpose(-2, -1)).transpose(-2, -1)    # (B, T, in_embd)
@@ -141,9 +140,7 @@ class SignalEncoder(torch.nn.Module):
         self.context_embedding = torch.nn.Linear(self.fan_in, self.n_embd)
         self.blocks = torch.nn.Sequential(*[TransformerBlock(self.n_embd, self.head_size, self.n_heads, self.ffwd_mul) for _ in range(self.n_blocks)])
         self.ln_f = torch.nn.LayerNorm(self.n_embd)
-        self.lm_head_1 = torch.nn.Linear(self.n_embd, self.n_embd)
-        self.lm_head_2 = torch.nn.Linear(self.n_embd, self.n_embd//2)
-        self.lm_head_3 = torch.nn.Linear(self.n_embd//2, self.fan_out)
+        self.lm_head = torch.nn.Linear(self.n_embd, self.fan_out)
         
     def forward(self, x):
         B, T, C = x.shape                                       # (B, T, fan_in)
@@ -151,10 +148,36 @@ class SignalEncoder(torch.nn.Module):
         x = self.context_embedding(x)                           # (B, T, n_embd)
         x = self.blocks(x)                                      # (B, T, n_embd)                                
         x = self.ln_f(x)                                        # (B, T, n_embd)
-        # x = self.lm_head(x)                                     # (B, T, fan_out)
-        x = self.lm_head_1(x)                                   # (B, T, n_embd)
-        x = self.lm_head_2(x)                                   # (B, T, n_embd//2)
-        x = self.lm_head_3(x)                                   # (B, T, fan_out)
+        x = self.lm_head(x)                                     # (B, T, fan_out)
 
         return x.view(B, T, self.fan_out)
-    
+class EngagementModel(torch.nn.Module):
+
+    def __init__(self, fan_in_A, fan_in_N, fan_out_A, fan_out_N, fan_out, n_embd, head_size, n_heads, n_blocks, ffwd_mul):
+        super().__init__()
+        self.fan_out = fan_out
+        self.signal_encoder_A = SignalEncoder(fan_in_A, fan_out_A, n_embd, head_size, n_heads, n_blocks, ffwd_mul)
+        self.signal_encoder_N = SignalEncoder(fan_in_N, fan_out_N, n_embd, head_size, n_heads, n_blocks, ffwd_mul)
+        self.lm_head = torch.nn.Sequential(
+                            torch.nn.Linear(fan_out_A + fan_out_N, fan_out),
+                            torch.nn.GELU()
+                        )
+
+    def forward(self, x_A, x_N, idx=None, weighted=False):
+        x_A = self.signal_encoder_A(x_A)
+        x_N = self.signal_encoder_N(x_N)
+        
+        out = torch.cat([x_A, x_N], -1)
+        out = self.lm_head(out)
+        B, T, C = out.shape
+
+        loss = None
+        if idx is not None:
+            x = out.float()
+            y = idx.unsqueeze(1).repeat(1, T, 1).float()
+            x = x.view(-1, self.fan_out)
+            y = y.view(-1).long()
+            loss = torch.nn.functional.cross_entropy(x, y, 
+                                                    weight=torch.tensor([1/61, 1/455, 1/4422, 1/3987], dtype=x.dtype, device=x.device) if weighted else None)
+        
+        return out, loss
