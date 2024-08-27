@@ -74,9 +74,7 @@ def get_frames(subject_videos, frame_interval=FRAME_INTERVAL, resize_to=None):
 
                 # Convert the first frame from BGR to RGB
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                
-                frame_tensor = torch.from_numpy(frame)
-                frames.append(frame_tensor)
+                frames.append(frame)
 
         video_capture.release()
 
@@ -85,11 +83,11 @@ def get_frames(subject_videos, frame_interval=FRAME_INTERVAL, resize_to=None):
             frames = frames[:frames_required]
             while len(frames) < frames_required:
                 frames.append(frames[-1])
-            frames_subject.append(torch.stack(frames))
+            frames_subject.append(frames)
         else:
             print(f"No frames extracted from video file {subject_video}")
 
-    return torch.stack(frames_subject) if frames_subject else torch.tensor([])
+    return frames_subject if frames_subject else [[]]
 
 def get_labels(paths):
     """Get labels for boredom, engagement, confusion, frustration."""
@@ -97,13 +95,15 @@ def get_labels(paths):
     tails = [os.path.split(path)[1] for path in paths]
     filtered_data = data[data['ClipID'].isin(tails)]
     engagement_data = filtered_data[['Engagement']]
-    return torch.tensor(engagement_data.values)
+    return engagement_data.values
 
-def load_data(path, dataset, batch_size):
+def load_data(path, dataset, batch_size=None):
     """Load random videos from 'path'."""
     path = os.path.join(path, dataset)
-    paths = get_video_paths(path)
-    random_paths = random.sample(paths, batch_size)
-    X = get_frames(random_paths, FRAME_INTERVAL)
-    Y = get_labels(random_paths)
-    return X, Y
+    paths = get_video_paths(path, sort=True)
+    if batch_size is not None:
+        paths = random.sample(paths, batch_size)
+    X = get_frames(paths, FRAME_INTERVAL)
+    Y = get_labels(paths)
+
+    return paths, X, Y
