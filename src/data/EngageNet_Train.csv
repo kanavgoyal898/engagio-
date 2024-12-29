@@ -1,4 +1,4 @@
-Video Path,chunk,label
+video_path,chunk,label
 ../Engagement Datasets/EngageNet/EngageNet/Train/subject_55_j489ubvnol_vid_0_0.mp4,subject_55_j489ubvnol_vid_0_0.mp4,2
 ../Engagement Datasets/EngageNet/EngageNet/Train/subject_55_j489ubvnol_vid_0_1.mp4,subject_55_j489ubvnol_vid_0_1.mp4,4
 ../Engagement Datasets/EngageNet/EngageNet/Train/subject_55_j489ubvnol_vid_0_10.mp4,subject_55_j489ubvnol_vid_0_10.mp4,4

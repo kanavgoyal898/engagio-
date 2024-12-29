@@ -1,4 +1,4 @@
-Video Path,chunk,label
+video_path,chunk,label
 ../Engagement Datasets/DAiSEE/DAiSEE/DataSet/Validation/400022/4000221001/4000221001.avi,4000221001.avi,2
 ../Engagement Datasets/DAiSEE/DAiSEE/DataSet/Validation/400022/4000221002/4000221002.avi,4000221002.avi,3
 ../Engagement Datasets/DAiSEE/DAiSEE/DataSet/Validation/400022/4000221006/4000221006.avi,4000221006.avi,2

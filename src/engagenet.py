@@ -4,7 +4,8 @@ import pandas as pd
 data_splits = ["Train", "Validation", "Test"]
 video_directories = [f"../Engagement Datasets/EngageNet/EngageNet/{data_split}" for data_split in data_splits]
 mapping_csv_path = f"../Engagement Datasets/EngageNet/EngageNet/&_engagement_labels.csv"
-output_csv_path = f"EngageNet_&.csv"
+output_csv_path = f"./data/EngageNet_&.csv"
+os.makedirs('./data/', exist_ok=True)
 
 label_mapping = {
     'SNP(Subject Not Present)': 0,
@@ -42,25 +43,13 @@ for video_directory in video_directories:
     result_df['Video Path'] = result_df['chunk'].apply(
         lambda filename: next((file for file in video_files if os.path.basename(file) == filename), None)
     )
-
+    pd.set_option('future.no_silent_downcasting', True)
     result_df['label'] = result_df['label'].replace(label_mapping)
 
-    final_df = result_df[['Video Path', 'chunk', 'label']]
+    final_df = result_df[['Video Path', 'chunk', 'label']].copy()
+    final_df = final_df.rename(columns={'Video Path': 'video_path', 'chunk': 'chunk', 'label': 'label'})
+
     output_path_csv = output_csv_path.replace('&', data_split)
     final_df.to_csv(output_path_csv, index=False)
 
     print(final_df)
-
-def video_batch_generator(df, batch_size=16):
-    total_videos = len(df)
-    for i in range(0, total_videos, batch_size):
-        yield df['Video Path'].iloc[i:i + batch_size].tolist()
-
-BATCH_SIZE = 16
-for i, batch in enumerate(video_batch_generator(final_df, batch_size=BATCH_SIZE)):
-    print(f"Batch {i + 1} loading...")
-    if len(batch) < BATCH_SIZE:
-        print("Warning: The last batch may contain less than 16 videos.")
-        continue
-    print(batch)
-    print("\n")

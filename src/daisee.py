@@ -4,7 +4,8 @@ import pandas as pd
 data_splits = ["Train", "Validation", "Test"]
 video_directories = [f"../Engagement Datasets/DAiSEE/DAiSEE/DataSet/{data_split}" for data_split in data_splits]
 mapping_csv_path = f"../Engagement Datasets/DAiSEE/DAiSEE/Labels/&Labels.csv"
-output_csv_path = f"DAiSEE_&.csv"
+output_csv_path = f"./data/DAiSEE_&.csv"
+os.makedirs('./data/', exist_ok=True)
 
 for video_directory in video_directories:
     data_split = video_directory.split('/')[-1]
@@ -39,23 +40,10 @@ for video_directory in video_directories:
         lambda filename: next((file for file in video_files if os.path.basename(file) == filename), None)
     )
 
-    final_df = result_df[['Video Path', 'ClipID', 'Engagement']]
-    final_df.rename(columns={'ClipID': 'chunk', 'Engagement': 'label'}, inplace=True)
+    final_df = result_df[['Video Path', 'ClipID', 'Engagement']].copy()
+    final_df = final_df.rename(columns={'Video Path': 'video_path', 'ClipID': 'chunk', 'Engagement': 'label'})
 
     output_path_csv = output_csv_path.replace('&', data_split)
     final_df.to_csv(output_path_csv, index=False)
 
     print(final_df)
-
-def video_batch_generator(df, batch_size=16):
-    total_videos = len(df)
-    for i in range(0, total_videos, batch_size):
-        yield df['Video Path'].iloc[i:i + batch_size].tolist()
-
-BATCH_SIZE = 16
-for i, batch in enumerate(video_batch_generator(final_df, batch_size=BATCH_SIZE)):
-    print(f"\nBatch {i + 1} loading...")
-    if len(batch) < BATCH_SIZE:
-        print("Warning: The last batch may contain less than 16 videos.")
-        continue
-    print(batch)

@@ -1,4 +1,4 @@
-Video Path,chunk,label
+video_path,chunk,label
 ../Engagement Datasets/EngageNet/EngageNet/Validation/subject_7_as2uk9lhe2_vid_0_0.mp4,subject_7_as2uk9lhe2_vid_0_0.mp4,2
 ../Engagement Datasets/EngageNet/EngageNet/Validation/subject_7_as2uk9lhe2_vid_0_1.mp4,subject_7_as2uk9lhe2_vid_0_1.mp4,1
 ../Engagement Datasets/EngageNet/EngageNet/Validation/subject_7_as2uk9lhe2_vid_0_10.mp4,subject_7_as2uk9lhe2_vid_0_10.mp4,1
